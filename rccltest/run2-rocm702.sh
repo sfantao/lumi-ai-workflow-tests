@@ -71,26 +71,27 @@ if [ $(hostname) = "lockhart-login1" ] ; then
             --pwd /workdir \
             $SIF"
 
-    SIF=$HOME/lumi-rocm-rocm-6.2.4.sif
-    mpicmd="srun \
-        --mpi=pmi2 \
-        -p MI250X_A1_COS_OK \
-        --time 1:00:00 \
-        --mem 0 \
-        --exclusive \
-        --threads-per-core=1 \
-        -c 8 \
-        -N $Nodes \
-        -n $((Nodes*8)) \
-        --cpu-bind=mask_cpu:$MYMASKS \
-        --gpus $((Nodes*8)) \
-        singularity exec \
-            -B /opt/cray \
-            -B /lib64/libc.so.6 \
-            -B /var/spool/slurm \
-            -B $(pwd):/workdir \
-            --pwd /workdir \
-            $SIF"
+    # Doesn't work due to libc version incompatibilty with the container.
+    # SIF=/home/sfantao/lumi-ai-workflow-tests/lumi-rocm-rocm-6.2.4.sif
+    # mpicmd="srun \
+    #     --mpi=pmi2 \
+    #     -p MI250X_A1_COS_OK \
+    #     --time 1:00:00 \
+    #     --mem 0 \
+    #     --exclusive \
+    #     --threads-per-core=1 \
+    #     -c 8 \
+    #     -N $Nodes \
+    #     -n $((Nodes*8)) \
+    #     --cpu-bind=mask_cpu:$MYMASKS \
+    #     --gpus $((Nodes*8)) \
+    #     singularity exec \
+    #         -B /opt/cray \
+    #         -B /lib64/libc.so.6 \
+    #         -B /var/spool/slurm \
+    #         -B $(pwd):/workdir \
+    #         --pwd /workdir \
+    #         $SIF"
 fi
 
 #
@@ -123,24 +124,24 @@ if [[ $(hostname) == "uan"* ]] ; then
             --pwd /workdir \
             $SIF"
 
-    SIF=/appl/local/containers/sif-images/lumi-rocm-rocm-6.2.4.sif
-    mpicmd="srun \
-        -p dev-g \
-        --time 1:00:00 \
-        --mem 0 \
-        --exclusive \
-        --threads-per-core=1 \
-        -c 7 \
-        -N $Nodes \
-        -n $((Nodes*8)) \
-        --cpu-bind=mask_cpu:$MYMASKS \
-        --gpus $((Nodes*8)) \
-        singularity exec \
-            -B /opt/cray \
-            -B /var/spool/slurmd \
-            -B $(pwd):/workdir \
-            --pwd /workdir \
-            $SIF"
+    # SIF=/appl/local/containers/sif-images/lumi-rocm-rocm-6.2.4.sif
+    # mpicmd="srun \
+    #     -p dev-g \
+    #     --time 1:00:00 \
+    #     --mem 0 \
+    #     --exclusive \
+    #     --threads-per-core=1 \
+    #     -c 7 \
+    #     -N $Nodes \
+    #     -n $((Nodes*8)) \
+    #     --cpu-bind=mask_cpu:$MYMASKS \
+    #     --gpus $((Nodes*8)) \
+    #     singularity exec \
+    #         -B /opt/cray \
+    #         -B /var/spool/slurmd \
+    #         -B $(pwd):/workdir \
+    #         --pwd /workdir \
+    #         $SIF"
 fi
 
 #
@@ -162,17 +163,56 @@ export NCCL_NET_PLUGIN=librccl-net.so
 # export NCCL_DEBUG=INFO
 # export NCCL_DEBUG_SUBSYS=INIT,COLL
 
+#export LD_LIBRARY_PATH="/opt/rccl-original:\$LD_LIBRARY_PATH"
+
 # -b minbytes
 # -e maxbytes
 # -f increment factor
 # -g gpus per thread
-/opt/rccltests/all_reduce_perf -z 1 -b 4 -e 2048M -f 2 -g 1 -t 1 -R 1 -n 20 -w 5 -d half
+/opt/rccltests/\$COLL_TYPE -z 1 -b 4 -e 2048M -f 2 -g 1 -t 1 -R 1 -n 20 -w 5 -d half
+
+
+#/opt/rccltests/all_reduce_perf -z 1 -b 4 -e 2048M -f 2 -g 1 -t 1 -R 1 -n 20 -w 5 -d half
+
 EOF
 chmod +x run.sh 
 
+for i in \
+    c_all_gather_perf \
+    c_all_reduce_perf \
+    alltoall_perf \
+    x_alltoallv_perf \
+    c_broadcast_perf \
+    x_gather_perf \
+    x_hypercube_perf \
+    c_reduce_perf \
+    c_reduce_scatter_perf \
+    x_scatter_perf \
+    x_sendrecv_perf ; do
+
+    if [[ "$i" == "c_"* ]] ; then continue; fi
+    if [[ "$i" == "x_"* ]] ; then continue; fi
+    if [[ "$i" == "h_"* ]] ; then continue; fi
+
+export COLL_TYPE=$i
 $mpicmd ./run.sh |& tee res.log
 
+done
+
 exit 0
+
+
+    c_all_gather_perf \
+    c_all_reduce_perf \
+    x_alltoall_perf \
+    x_alltoallv_perf \
+    c_broadcast_perf \
+    x_gather_perf \
+    x_hypercube_perf \
+    h_reduce_perf \
+    c_reduce_scatter_perf \
+    x_scatter_perf \
+    x_sendrecv_perf ; do
 
 # docker run -it --rm \
 #     -e https_proxy='http://172.23.0.3:3128/' \

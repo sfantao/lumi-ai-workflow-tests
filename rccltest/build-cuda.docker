@@ -1,0 +1,25 @@
+FROM nvcr.io/nvidia/pytorch:25.04-py3
+
+ENV PIP_CONSTRAINT=''
+
+RUN set -eux ; \
+  pip install "setuptools<80.0.0,>=77.0.0" "packaging>=24.2"
+
+ARG MEGATRON_VERSION
+RUN set -eux ; \
+  rm -rf /opt/mybuild ;\
+  git clone https://github.com/NVIDIA/Megatron-LM.git /opt/mybuild ; \
+  cd /opt/mybuild ; \
+  git checkout -b mydev $MEGATRON_VERSION ; \
+  git submodule sync ; \
+  git submodule update --init --recursive  ; \
+  mkdir -p /opt/wheels ; \
+  CC=gcc \
+  CXX=g++ \
+    pip wheel --no-deps -e . -w /opt/wheels ; \
+  cd / ; rm -rf /opt/mybuild
+
+RUN $WITH_CONDA; set -eux ; \
+  pip install /opt/wheels/megatron_core-*.whl ; \
+  true
+

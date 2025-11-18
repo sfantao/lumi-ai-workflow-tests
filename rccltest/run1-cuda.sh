@@ -1,0 +1,31 @@
+#!/bin/bash -eux
+
+BASENAME="$(basename $0 | sed 's/.sh$//' | sed 's/^run1-//')"
+TAG=lumi-ai-workflow-tests/$(basename $(pwd)):$BASENAME
+SIF=$(basename $(pwd))-$BASENAME.sif
+TESTNAME=$(basename $(pwd))
+
+
+# docker run -it --rm \
+#     -e https_proxy='http://172.23.0.3:3128/' \
+#     -e http_proxy='http://172.23.0.3:3128/' \
+#     $TAG
+# exit 0
+
+#
+# BP0: x1001c4s3b0n0
+#
+
+# mkdir -p /data1/sfantao/lumi-ai-workflow-tests/runfolder/$TESTNAME
+# rsync -avhc run2-rocm642-mi300.sh  /data1/sfantao/lumi-ai-workflow-tests/runfolder/$TESTNAME/
+# bash -eux -c "cd /data1/sfantao/lumi-ai-workflow-tests/runfolder/$TESTNAME ; TAG=$TAG SIF=$SIF ./run2-rocm642-mi300.sh "
+# exit 0
+
+#
+# Thera - needs reverse tunnel
+#
+
+#ssh thera "bash -eux -c 'mkdir -p /home/sfantao/lumi-ai-workflow-tests/$TESTNAME'"
+#rsync -avhc --progress $SIF run2-cuda.sh  thera:/home/sfantao/lumi-ai-workflow-tests/$TESTNAME/
+rsync -avhc --progress run2-cuda.sh  thera:/home/sfantao/lumi-ai-workflow-tests/$TESTNAME/
+ssh thera "bash -eux -c 'cd /home/sfantao/lumi-ai-workflow-tests/$TESTNAME ; TAG=$TAG SIF=$SIF ./run2-cuda.sh '"
