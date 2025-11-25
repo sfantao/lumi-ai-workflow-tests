@@ -6,7 +6,7 @@ SIF=$(basename $(pwd))-$BASENAME.sif
 TESTNAME=$(basename $(pwd))
 
 ###
-if [ 1 -eq 1 ] ; then
+if [ 1 -eq 0 ] ; then
     rm -rf /tmp/sfantao-sif-build-pipe
     mkdir /tmp/sfantao-sif-build-pipe
 

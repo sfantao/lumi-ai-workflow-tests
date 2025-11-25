@@ -100,6 +100,40 @@ if [[ $(hostname) == "TheraS02"* ]] ; then
 fi
 
 #
+# B200
+#
+if [[ $(hostname) == "ipn1" ]] ; then
+
+    jobid=""
+    #jobid="--jobid $(squeue --me | awk '{print $1}' | tail -n1)"
+
+    Nodes=1
+    c=ffff
+    MYMASKS="0x${c},0x${c}0000,0x${c}00000000,0x${c}000000000000,0x${c}0000000000000000,0x${c}00000000000000000000,0x${c}000000000000000000000000,0x${c}0000000000000000000000000000"
+
+    #export MASTER_ADDR=\$(scontrol show hostname "\$SLURM_NODELIST" | head -n1)
+
+    mpicmd="srun \
+        $jobid \
+        --mpi=pmi2 \
+        --time 4:00:00 \
+        --mem 0 \
+        --exclusive \
+        --threads-per-core=1 \
+        -c 16 \
+        -N $Nodes \
+        -n $((Nodes*8)) \
+        apptainer exec --nv \
+            -B /var/spool/slurmd \
+            -B $(pwd):/workdir \
+            -B /mnt/local/sfantao/lumi-ai/cuda:/megatron \
+            --pwd /workdir \
+            $SIF"
+
+fi
+
+
+#
 # RCCL test
 #
 if [ 1 -eq 0 ] ; then
@@ -164,8 +198,8 @@ cat > run.sh << EOF
 #!/bin/bash -e
 set -x
 
-ls -la /usr/lib/libnvidia-ml.*
-ldd /usr/lib/libnvidia-ml.so.1
+# ls -la /usr/lib/libnvidia-ml.*
+# ldd /usr/lib/libnvidia-ml.so.1
 
 export TRITON_LIBCUDA_PATH="/usr/local/cuda-12.9/compat/lib.real"
 
@@ -224,7 +258,7 @@ FIXED_GPT_ARGS=" \
     --ffn-hidden-size \$FFN_HIDDEN_SIZE \
     --max-position-embeddings \$SEQ_LEN \
     --seq-length \$SEQ_LEN \
-    --train-iters 5 \
+    --train-iters 20 \
     --tokenizer-type GPT2BPETokenizer \
     --vocab-file \$VOCAB \
     --merge-file \$MERGES \
@@ -290,12 +324,21 @@ GPT_ARGS=" \
     --micro-batch-size \$MICRO_BATCH_SIZE \
 	--recompute-activations \
     \
-    --profile-ranks 3 \
-    --profile-step-start 3 \
-    --profile-step-end 4 \
-    --use-pytorch-profiler \
-    --profile --tensorboard-dir /megatron/tb-logs \
+        --transformer-impl=transformer_engine \
+            --fp8-format=hybrid \
+            --fp8-margin=0 \
+            --fp8-interval=1 \
+            --fp8-amax-history-len=1024 \
+            --fp8-amax-compute-algo=max \
+            --attention-softmax-in-fp32 \
     "
+
+    # --profile-ranks 3 \
+    # --profile-step-start 3 \
+    # --profile-step-end 4 \
+    # --use-pytorch-profiler \
+    # --profile --tensorboard-dir /megatron/tb-logs \
+    #
 
 CMD=" \
     Megatron-LM/pretrain_gpt.py \

@@ -964,15 +964,21 @@ RUN $WITH_CONDA; set -eux ; \
 RUN $WITH_CONDA; set -eux ; \
   git clone https://github.com/huggingface/lighteval /opt/mybuild ; \
   cd /opt/mybuild ; \
-  CC=gcc-12 \
-  CXX=g++-12 \
+  CC=gcc \
+  CXX=g++ \
   pip wheel --no-deps -e . -w /opt/wheels ; \
   cd / ; rm -rf /opt/mybuild
 
 RUN $WITH_CONDA; set -eux ; \
-  CC=gcc-12 \
-  CXX=g++-12 \
+  CC=gcc \
+  CXX=g++ \
   pip install /opt/wheels/lighteval*.whl ; true
+
+# RUN $WITH_CONDA; set -eux ; \
+#   export CC=gcc; \
+#   export CXX=g++; \
+#   pip install /opt/wheels/aiter*.whl ; \
+#   pip install pybind11==3.0.1
 
 ENV CONDA_DEFAULT_ENV=pytorch
 ENV CONDA_SHLVL=1

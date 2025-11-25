@@ -23,3 +23,9 @@ RUN $WITH_CONDA; set -eux ; \
   pip install /opt/wheels/megatron_core-*.whl ; \
   true
 
+RUN $WITH_CONDA; set -eux ; \
+  pip install \
+    hf_xet==1.2.0 \
+    huggingface_hub==0.36.0 \
+    tokenizers==0.22.1 \
+    transformers==4.57.1

@@ -26,21 +26,49 @@ TESTNAME=$(basename $(pwd))
 #
 
 #ssh lockhart-login1 "bash -eux -c 'mkdir -p /home/sfantao/lumi-ai-workflow-tests/$TESTNAME'"
-rsync -avhc --progress $SIF run2-rocm642.sh lockhart-login1:/home/sfantao/lumi-ai-workflow-tests/$TESTNAME/
-#rsync -avhc --progress run2-rocm642.sh lockhart-login1:/home/sfantao/lumi-ai-workflow-tests/$TESTNAME/
-#ssh lockhart-login1 "bash -eux -c 'cd /home/sfantao/lumi-ai-workflow-tests/$TESTNAME ; TAG=$TAG SIF=$SIF ./run2-rocm642.sh'"
+#rsync -avhc --progress $SIF run2-rocm642.sh lockhart-login1:/home/sfantao/lumi-ai-workflow-tests/$TESTNAME/
+# rsync -avhc --progress run2-rocm642.sh lockhart-login1:/home/sfantao/lumi-ai-workflow-tests/$TESTNAME/
+# ssh lockhart-login1 "bash -eux -c 'cd /home/sfantao/lumi-ai-workflow-tests/$TESTNAME ; TAG=$TAG SIF=$SIF ./run2-rocm642.sh'"
+# exit 
 
+rsync -avhc --progress run2-rocm642.sh lockhart-login1:/home/sfantao/lumi-ai-workflow-tests/$TESTNAME/
+for i in 1 ; do
+    #SIF='/appl/local/containers/sif-images/lumi-pytorch-rocm-6.2.4-python-3.12-pytorch-v2.7.0.sif'
+    Nodes=$((2*i))
+    wf=run_nodes${Nodes}_$(date +%s)
+    ssh lockhart-login1 "bash -eux -c 'cd /home/sfantao/lumi-ai-workflow-tests/$TESTNAME ; \
+                             mkdir $wf ; cd $wf ;  \
+                             sed \"s/##Nodes##/$Nodes/g\" ../run2-rocm642.sh > ./run2-rocm642.sh ; \
+                             TAG=$TAG SIF=$SIF sbatch ./run2-rocm642.sh'"
+done
+
+exit 0
 
 #
 # LUMI
 #
 
+
+
 # ssh lumi3 "bash -eux -c 'mkdir -p /pfs/lustrep2/scratch/project_462000125/samantao/lumi-ai-workflow-tests/$TESTNAME'"
-rsync -avhc --progress $SIF run2-rocm642.sh lumi3:/pfs/lustrep2/scratch/project_462000125/samantao/lumi-ai-workflow-tests/$TESTNAME/
+#rsync -avhc --progress $SIF run2-rocm642.sh lumi3:/pfs/lustrep2/scratch/project_462000125/samantao/lumi-ai-workflow-tests/$TESTNAME/
 #rsync -avhc --progress run2-rocm642.sh lumi3:/pfs/lustrep2/scratch/project_462000125/samantao/lumi-ai-workflow-tests/$TESTNAME/
 #ssh lumi3 "bash -eux -c 'cd /pfs/lustrep2/scratch/project_462000125/samantao/lumi-ai-workflow-tests/$TESTNAME ; TAG=$TAG SIF=$SIF ./run2-rocm642.sh'"
 
+rsync -avhc --progress run2-rocm642-lumi.sh lumi3:/pfs/lustrep2/scratch/project_462000125/samantao/lumi-ai-workflow-tests/$TESTNAME/
+for i in 8 16 32 64 ; do
+    SIF='/appl/local/containers/sif-images/lumi-pytorch-rocm-6.2.4-python-3.12-pytorch-v2.7.0.sif'
+    Nodes=$((16*i))
+    wf=run_nodes${Nodes}_$(date +%s)
+    ssh lumi3 "bash -eux -c 'cd /pfs/lustrep2/scratch/project_462000125/samantao/lumi-ai-workflow-tests/$TESTNAME ; \
+                             mkdir $wf ; cd $wf ;  \
+                             sed \"s/##Nodes##/$Nodes/g\" ../run2-rocm642-lumi.sh > ./run2-rocm642-lumi.sh ; \
+                             TAG=$TAG SIF=$SIF sbatch ./run2-rocm642-lumi.sh'"
+done
+
+
 #ssh thera "bash -eux -c 'mkdir -p /home/sfantao/lumi-ai-workflow-tests/$TESTNAME'"
-rsync -avhc --progress $SIF run2-rocm642.sh  thera:/home/sfantao/lumi-ai-workflow-tests/$TESTNAME/
+#rsync -avhc --progress $SIF run2-rocm642.sh  thera:/home/sfantao/lumi-ai-workflow-tests/$TESTNAME/
 #rsync -avhc --progress run2-rocm642.sh  thera:/home/sfantao/lumi-ai-workflow-tests/$TESTNAME/
 #ssh thera "bash -eux -c 'cd /home/sfantao/lumi-ai-workflow-tests/$TESTNAME ; TAG=$TAG SIF=$SIF ./run2-rocm642.sh '"
+

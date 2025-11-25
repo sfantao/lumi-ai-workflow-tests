@@ -1,183 +1,57 @@
 #!/bin/bash -eux
-BASENAME="$(basename $0 | sed 's/.sh$//' | sed 's/^run2-//')"
+#SBATCH --job-name Megatron-LM_test
+#SBATCH -p standard-g 
+#SBATCH --threads-per-core 1
+#SBATCH --exclusive
+#SBATCH --gpus-per-node 8 
+#SBATCH -N ##Nodes##
+#SBATCH -c 56
+#SBATCH -t 3:00:00
+#SBATCH --mem 0
+#SBATCH -o job-stdout.txt
+#SBATCH -e job-stderr.txt
+
+BASENAME=rocm642 #"$(basename $0 | sed 's/.sh$//' | sed 's/^run2-//')"
 SIF=$(realpath $SIF)
 
 mkdir -p $BASENAME.runfolder
 cd $BASENAME.runfolder
+mkdir -p tb-logs
 
 mpicmd="undefined mpicommand"
 
 #
-# BP0: x1001c4s3b0n0
-#
-cat > rankfile << EOF
-rank 0=x1001c4s3b0n0 slots=48-55
-rank 1=x1001c4s3b0n0 slots=56-63
-rank 2=x1001c4s3b0n0 slots=16-23
-rank 3=x1001c4s3b0n0 slots=24-31
-rank 4=x1001c4s3b0n0 slots=0-7
-rank 5=x1001c4s3b0n0 slots=8-15
-rank 6=x1001c4s3b0n0 slots=32-39
-rank 7=x1001c4s3b0n0 slots=40-47
-EOF
-
-if [ $(hostname) = "x1001c4s3b0n0" ] ; then
-    mpicmd="/opt/ompi-5.0.3/bin/mpirun \
-                -np 8 \
-                --map-by rankfile:file=rankfile \
-                --report-bindings \
-                docker run \
-                    --cap-add=SYS_PTRACE \
-                    --ipc=host \
-                    --privileged=true \
-                    --shm-size=128GB \
-                    --network=host \
-                    --device=/dev/kfd \
-                    --device=/dev/dri \
-                    --group-add video \
-                    -w /workdir \
-                    -v $(pwd):/workdir \
-                    --rm $TAG"
-fi
-
-#
-# Lockhart
-#
-if [ $(hostname) = "lockhart-login1" ] ; then
-
-    module load singularity
-    
-    Nodes=1
-    c=fe
-    MYMASKS="0x${c}000000000000,0x${c}00000000000000,0x${c}0000,0x${c}000000,0x${c},0x${c}00,0x${c}00000000,0x${c}0000000000"
-
-    #export MASTER_ADDR=\$(scontrol show hostname "\$SLURM_NODELIST" | head -n1)
-
-    mpicmd="srun \
-        --mpi=pmi2 \
-        -p MI300A_A1_COS_OK \
-        --time 1:00:00 \
-        --mem 0 \
-        --exclusive \
-        --threads-per-core=1 \
-        -c 24 \
-        -N $Nodes \
-        -n $((Nodes*4)) \
-        --gpus $((Nodes*4)) \
-        singularity exec \
-            -B /var/spool/slurm \
-            -B $(pwd):/workdir \
-            -B /home/sfantao/lumi-ai/megatron:/megatron \
-            --pwd /workdir \
-            $SIF"
-
-    # Doesn't work due to libc version incompatibilty with the container.
-    # SIF=/home/sfantao/lumi-ai-workflow-tests/lumi-rocm-rocm-6.2.4.sif
-    # mpicmd="srun \
-    #     --mpi=pmi2 \
-    #     -p MI250X_A1_COS_OK \
-    #     --time 1:00:00 \
-    #     --mem 0 \
-    #     --exclusive \
-    #     --threads-per-core=1 \
-    #     -c 8 \
-    #     -N $Nodes \
-    #     -n $((Nodes*8)) \
-    #     --cpu-bind=mask_cpu:$MYMASKS \
-    #     --gpus $((Nodes*8)) \
-    #     singularity exec \
-    #         -B /opt/cray \
-    #         -B /lib64/libc.so.6 \
-    #         -B /var/spool/slurm \
-    #         -B $(pwd):/workdir \
-    #         --pwd /workdir \
-    #         $SIF"
-fi
-
-#
 # LUMI
 #
-if [[ $(hostname) == "uan"* ]] ; then
+if true ; then
     
-    Nodes=8
+    Nodes=$SLURM_NNODES
     c=fe
     MYMASKS="0x${c}000000000000,0x${c}00000000000000,0x${c}0000,0x${c}000000,0x${c},0x${c}00,0x${c}00000000,0x${c}0000000000"
+    MYMASKS="0x${c}000000000000,0x${c}0000,0x${c},0x${c}00000000"
+
 
     #export MASTER_ADDR=\$(scontrol show hostname "\$SLURM_NODELIST" | head -n1)
     
-
-    mpicmd="srun \
-        --mpi=pmi2 \
-        -p dev-g \
-        --time 1:00:00 \
+    mpicmd="srun -l \
+        --time 3:00:00 \
         --mem 0 \
         --exclusive \
         --threads-per-core=1 \
-        -c 7 \
+        -c 14 \
         -N $Nodes \
-        -n $((Nodes*8)) \
+        -n $((Nodes*4)) --tasks-per-node 4 \
         --cpu-bind=mask_cpu:$MYMASKS \
         --gpus $((Nodes*8)) \
         singularity exec \
             -B /var/spool/slurmd \
+            -B /opt/cray \
             -B $(pwd):/workdir \
+            -B /pfs/lustrep2/scratch/project_462000125/samantao/lumi-ai/megatron:/megatron \
             --pwd /workdir \
             $SIF"
 
-    # SIF=/appl/local/containers/sif-images/lumi-rocm-rocm-6.2.4.sif
-    # mpicmd="srun \
-    #     -p dev-g \
-    #     --time 1:00:00 \
-    #     --mem 0 \
-    #     --exclusive \
-    #     --threads-per-core=1 \
-    #     -c 7 \
-    #     -N $Nodes \
-    #     -n $((Nodes*8)) \
-    #     --cpu-bind=mask_cpu:$MYMASKS \
-    #     --gpus $((Nodes*8)) \
-    #     singularity exec \
-    #         -B /opt/cray \
-    #         -B /var/spool/slurmd \
-    #         -B $(pwd):/workdir \
-    #         --pwd /workdir \
-    #         $SIF"
-fi
 
-#
-# Thera
-#
-if [[ $(hostname) == "TheraS02"* ]] ; then
-
-    module load singularity
-    jobid=''
-    jobid="--jobid $(squeue --me | awk '{print $1}' | tail -n1)"
-    #jobid='--jobid 257055'
-
-    Nodes=1
-    c=fe
-    MYMASKS="0x${c}000000000000,0x${c}00000000000000,0x${c}0000,0x${c}000000,0x${c},0x${c}00,0x${c}00000000,0x${c}0000000000"
-
-    #export MASTER_ADDR=\$(scontrol show hostname "\$SLURM_NODELIST" | head -n1)
-
-    mpicmd="srun -l \
-        $jobid \
-        --mpi=pmi2 \
-        -p MI300x \
-        --time 4:00:00 \
-        --mem 0 \
-        --exclusive \
-        --threads-per-core=1 \
-        -c 16 \
-        -N $Nodes \
-        -n $((Nodes*8)) \
-        --gpus $((Nodes*8)) \
-        singularity exec \
-            -B /var/spool/slurmd \
-            -B $(pwd):/workdir \
-            -B /mnt/thera/data/incoming/sfantao/lumi-ai/megatron:/megatron \
-            --pwd /workdir \
-            $SIF"
 fi
 
 #
@@ -185,8 +59,8 @@ fi
 #
 if [ 1 -eq 0 ] ; then
 
-rm -rf run.sh 
-cat > run.sh << EOF
+    rm -rf run.sh 
+    cat > run.sh << EOF
 #!/bin/bash -e
 set -x
 
@@ -248,19 +122,22 @@ cat > run.sh << EOF
 #!/bin/bash -e
 set -x
 
-source venv/bin/activate
+export HIP_VISIBLE_DEVICES=0,2,4,6
 
 # For machines with no slingshot
-export NCCL_SOCKET_IFNAME=ens51np0
-unset NCCL_SOCKET_IFNAME
+# unset NCCL_SOCKET_IFNAME
 
 export PMIX_MCA_psec=^munge
 export NCCL_NET_PLUGIN=librccl-net.so
 
-# export FI_MR_CACHE_MONITOR=userfaultfd
-# export FI_CXI_DEFAULT_CQ_SIZE=131072
+export FI_MR_CACHE_MONITOR=userfaultfd
+export FI_CXI_DEFAULT_CQ_SIZE=131072
 # export FI_CXI_RX_MATCH_MODE=software
 # export FI_CXI_RDZV_PROTO=alt_read
+
+export HSA_ENABLE_SDMA=0
+export RCCL_MSCCL_FORCE_ENABLE=1
+export OMP_NUM_THREADS=1 
 
 # export NCCL_DEBUG=INFO
 # export NCCL_DEBUG_SUBSYS=INIT,COLL
@@ -269,7 +146,7 @@ export AITER_JIT_DIR=/tmp/my-aiter-jit-dir-\$SLURM_LOCALID
 
 cd /megatron
 
-export MASTER_ADDR=TheraC18 #\$(echo \$SLURM_NODELIST | cut -d, -f1)
+#export MASTER_ADDR=\$(echo \$SLURM_NODELIST | cut -d, -f1)
 export MASTER_PORT=45678
 
 set -eox pipefail
@@ -291,10 +168,10 @@ TRAIN_DATA=data/fineweb-10BT-BPE_text_document
 MERGES=data/merges.txt
 VOCAB=data/vocab.json
 
-NLAYERS=$((112/4))
-NHIDDEN=$((12288/4))
+NLAYERS=$((112))
+NHIDDEN=$((12288))
 NHEADS=$((96))
-FFN_HIDDEN_SIZE=$((43008/4))
+FFN_HIDDEN_SIZE=$((43008))
 SEQ_LEN=$((8192))
 NUM_QUERY_GROUPS=$((24))
 
@@ -307,7 +184,7 @@ FIXED_GPT_ARGS=" \
     --ffn-hidden-size \$FFN_HIDDEN_SIZE \
     --max-position-embeddings \$SEQ_LEN \
     --seq-length \$SEQ_LEN \
-    --train-iters 3 \
+    --train-iters 5 \
     --tokenizer-type GPT2BPETokenizer \
     --vocab-file \$VOCAB \
     --merge-file \$MERGES \
@@ -352,8 +229,8 @@ CP_SIZE=2
 MICRO_BATCH_SIZE=1
 
 TP_SIZE=4
-PP_SIZE=2
-CP_SIZE=1
+PP_SIZE=16
+CP_SIZE=2
 MICRO_BATCH_SIZE=1
 
 GPT_ARGS=" \
@@ -369,28 +246,21 @@ GPT_ARGS=" \
     --context-parallel-size \$CP_SIZE \
     --sequence-parallel \
     --dataloader-type single \
-    --num-workers 8 \
+    --num-workers 7 \
     --micro-batch-size \$MICRO_BATCH_SIZE \
 	--recompute-activations \
     \
     "
 
-    # --transformer-impl=transformer_engine \
-    #         --fp8-format=hybrid \
-    #         --fp8-margin=0 \
-    #         --fp8-interval=1 \
-    #         --fp8-amax-history-len=1024 \
-    #         --fp8-amax-compute-algo=max \
-    #         --attention-softmax-in-fp32 \
-#    --profile-ranks 3 \
+#    --profile-ranks 0 \
 #    --profile-step-start 3 \
 #    --profile-step-end 4 \
 #    --use-pytorch-profiler \
-#    --profile --tensorboard-dir /megatron/tb-logs \
+#    --profile --tensorboard-dir /workdir/tb-logs \
 #
 
 CMD=" \
-    Megatron-LM/pretrain_gpt.py \
+    Megatron-LM-f612bdf/pretrain_gpt.py \
     \$FIXED_GPT_ARGS \
 	\$GPT_ARGS \
     "
@@ -402,13 +272,15 @@ export WORLD_SIZE=\$SLURM_NPROCS
 
 if [ "\${RANK}" = "0" ]; then
 	echo \$CMD
-    rm -rf /megatron/tb-logs
-    mkdir /megatron/tb-logs
 fi
 
-python -u \$CMD
+python -u \$CMD |& tee /workdir/tb-logs/logs.\$SLURM_PROCID.txt
 EOF
 chmod +x run.sh 
+
+export CC=gcc-12
+export CXX=g++-12
+export MASTER_ADDR=$(hostname)
 
 $mpicmd ./run.sh |& tee res.log
 

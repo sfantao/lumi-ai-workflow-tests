@@ -49,7 +49,8 @@ version VLLM 'v0.11.0'
 version TE 'e9c7361'
 
 version MEGATRON '856c36d'
-version AITER 'a2122a2'
+#version AITER 'a2122a2'
+version AITER 'e247072'
 
 #version XFORMERS '90f6960'
 version XFORMERS 'c9911ff'

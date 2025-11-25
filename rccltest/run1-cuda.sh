@@ -27,5 +27,14 @@ TESTNAME=$(basename $(pwd))
 
 #ssh thera "bash -eux -c 'mkdir -p /home/sfantao/lumi-ai-workflow-tests/$TESTNAME'"
 #rsync -avhc --progress $SIF run2-cuda.sh  thera:/home/sfantao/lumi-ai-workflow-tests/$TESTNAME/
-rsync -avhc --progress run2-cuda.sh  thera:/home/sfantao/lumi-ai-workflow-tests/$TESTNAME/
-ssh thera "bash -eux -c 'cd /home/sfantao/lumi-ai-workflow-tests/$TESTNAME ; TAG=$TAG SIF=$SIF ./run2-cuda.sh '"
+# rsync -avhc --progress run2-cuda.sh  thera:/home/sfantao/lumi-ai-workflow-tests/$TESTNAME/
+# ssh thera "bash -eux -c 'cd /home/sfantao/lumi-ai-workflow-tests/$TESTNAME ; TAG=$TAG SIF=$SIF ./run2-cuda.sh '"
+
+#
+# Thera - needs reverse tunnel
+#
+
+# ssh b200 "bash -eux -c 'mkdir -p /mnt/local/sfantao/lumi-ai-workflow-tests/$TESTNAME'"
+# rsync -avhc --progress $SIF run2-cuda.sh  b200:/mnt/local/sfantao/lumi-ai-workflow-tests/$TESTNAME/
+rsync -avhc --progress run2-cuda.sh  b200:/mnt/local/sfantao/lumi-ai-workflow-tests/$TESTNAME/
+ssh b200 "bash -eux -c 'cd /mnt/local/sfantao/lumi-ai-workflow-tests/$TESTNAME ; TAG=$TAG SIF=$SIF ./run2-cuda.sh '"
