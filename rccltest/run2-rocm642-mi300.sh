@@ -4,6 +4,7 @@ SIF=$(realpath $SIF)
 
 mkdir -p $BASENAME.runfolder
 cd $BASENAME.runfolder
+mkdir -p tb-logs
 
 mpicmd="undefined mpicommand"
 
@@ -255,7 +256,7 @@ export NCCL_SOCKET_IFNAME=ens51np0
 unset NCCL_SOCKET_IFNAME
 
 export PMIX_MCA_psec=^munge
-export NCCL_NET_PLUGIN=librccl-net.so
+#export NCCL_NET_PLUGIN=librccl-net.so
 
 # export FI_MR_CACHE_MONITOR=userfaultfd
 # export FI_CXI_DEFAULT_CQ_SIZE=131072
@@ -266,6 +267,10 @@ export NCCL_NET_PLUGIN=librccl-net.so
 # export NCCL_DEBUG_SUBSYS=INIT,COLL
 
 export AITER_JIT_DIR=/tmp/my-aiter-jit-dir-\$SLURM_LOCALID
+# rm -rf \$AITER_JIT_DIR
+# mkdir -p \$AITER_JIT_DIR
+# cd \$AITER_JIT_DIR
+# tar -xf ~/aiter.tar
 
 cd /megatron
 
@@ -307,7 +312,7 @@ FIXED_GPT_ARGS=" \
     --ffn-hidden-size \$FFN_HIDDEN_SIZE \
     --max-position-embeddings \$SEQ_LEN \
     --seq-length \$SEQ_LEN \
-    --train-iters 3 \
+    --train-iters 1 \
     --tokenizer-type GPT2BPETokenizer \
     --vocab-file \$VOCAB \
     --merge-file \$MERGES \
@@ -325,7 +330,7 @@ FIXED_GPT_ARGS=" \
     --group-query-attention \
     --num-query-groups \$NUM_QUERY_GROUPS \
     --use-flash-attn \
-    --eval-iters 5 \
+    --eval-iters 1 \
     --log-throughput \
     --log-progress \
     --log-params-norm \
@@ -351,8 +356,8 @@ PP_SIZE=8
 CP_SIZE=2
 MICRO_BATCH_SIZE=1
 
-TP_SIZE=4
-PP_SIZE=2
+TP_SIZE=8
+PP_SIZE=1
 CP_SIZE=1
 MICRO_BATCH_SIZE=1
 
@@ -386,7 +391,7 @@ GPT_ARGS=" \
 #    --profile-step-start 3 \
 #    --profile-step-end 4 \
 #    --use-pytorch-profiler \
-#    --profile --tensorboard-dir /megatron/tb-logs \
+#    --profile --tensorboard-dir /workdir/tb-logs \
 #
 
 CMD=" \
@@ -400,13 +405,14 @@ export LOCAL_RANK=\$SLURM_LOCALID
 export LOCAL_WORLD_SIZE=\$SLURM_TASKS_PER_NODE
 export WORLD_SIZE=\$SLURM_NPROCS
 
-if [ "\${RANK}" = "0" ]; then
+if [ "\${RANK}" = "100000" ]; then
 	echo \$CMD
-    rm -rf /megatron/tb-logs
-    mkdir /megatron/tb-logs
+    rocprof-compute profile --device 0 --roof-only -n thera300x -- python -u \$CMD
+else
+    python -u \$CMD
 fi
 
-python -u \$CMD
+#python -u \$CMD
 EOF
 chmod +x run.sh 
 

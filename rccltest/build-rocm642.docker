@@ -780,6 +780,9 @@ RUN $WITH_CONDA; set -eux ; \
 ARG MI_NAME
 RUN $WITH_CONDA; set -eux ; \
   if [[ "${MI_NAME}" == "MI2"* ]] ; then export NVTE_FUSED_ATTN_CK=0 ; fi ; \
+  if [[ "${MI_NAME}" == "MI300A"* ]] ; then export CU_NUM=228 ; fi ; \
+  if [[ "${MI_NAME}" == "MI300X"* ]] ; then export CU_NUM=304 ; fi ; \
+  \
   export GPU_TARGETS=$MI_TARGET ; \
   export TARGET_GPUS=$MI_NAME  ; \
   rm -rf /opt/mybuild ; \
@@ -979,6 +982,18 @@ RUN $WITH_CONDA; set -eux ; \
 #   export CXX=g++; \
 #   pip install /opt/wheels/aiter*.whl ; \
 #   pip install pybind11==3.0.1
+
+RUN set -eux ; \
+  apt-get update ; \
+  apt-get -y install \
+    locales ; \
+  apt-get clean ; \
+  rm -rf /var/lib/apt/lists/* ; \
+  true
+
+RUN set -eux ; \
+  locale-gen en_US.UTF-8 ; \
+  update-locale LANG=en_US.UTF-8 
 
 ENV CONDA_DEFAULT_ENV=pytorch
 ENV CONDA_SHLVL=1

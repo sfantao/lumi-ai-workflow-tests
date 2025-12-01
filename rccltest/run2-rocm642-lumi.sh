@@ -28,7 +28,7 @@ if true ; then
     Nodes=$SLURM_NNODES
     c=fe
     MYMASKS="0x${c}000000000000,0x${c}00000000000000,0x${c}0000,0x${c}000000,0x${c},0x${c}00,0x${c}00000000,0x${c}0000000000"
-    MYMASKS="0x${c}000000000000,0x${c}0000,0x${c},0x${c}00000000"
+    #MYMASKS="0x${c}000000000000,0x${c}0000,0x${c},0x${c}00000000"
 
 
     #export MASTER_ADDR=\$(scontrol show hostname "\$SLURM_NODELIST" | head -n1)
@@ -38,9 +38,9 @@ if true ; then
         --mem 0 \
         --exclusive \
         --threads-per-core=1 \
-        -c 14 \
+        -c 7 \
         -N $Nodes \
-        -n $((Nodes*4)) --tasks-per-node 4 \
+        -n $((Nodes*8)) --tasks-per-node 8 \
         --cpu-bind=mask_cpu:$MYMASKS \
         --gpus $((Nodes*8)) \
         singularity exec \
@@ -111,7 +111,7 @@ export COLL_TYPE=$i
 $mpicmd ./run.sh |& tee res.log
 
 done
-fi
+fi  
 
 #
 # Megatron
@@ -122,7 +122,7 @@ cat > run.sh << EOF
 #!/bin/bash -e
 set -x
 
-export HIP_VISIBLE_DEVICES=0,2,4,6
+#export HIP_VISIBLE_DEVICES=0,2,4,6
 
 # For machines with no slingshot
 # unset NCCL_SOCKET_IFNAME
@@ -168,7 +168,7 @@ TRAIN_DATA=data/fineweb-10BT-BPE_text_document
 MERGES=data/merges.txt
 VOCAB=data/vocab.json
 
-NLAYERS=$((112))
+NLAYERS=$((112/2))
 NHIDDEN=$((12288))
 NHEADS=$((96))
 FFN_HIDDEN_SIZE=$((43008))
@@ -184,7 +184,7 @@ FIXED_GPT_ARGS=" \
     --ffn-hidden-size \$FFN_HIDDEN_SIZE \
     --max-position-embeddings \$SEQ_LEN \
     --seq-length \$SEQ_LEN \
-    --train-iters 5 \
+    --train-iters 3 \
     --tokenizer-type GPT2BPETokenizer \
     --vocab-file \$VOCAB \
     --merge-file \$MERGES \
@@ -202,7 +202,7 @@ FIXED_GPT_ARGS=" \
     --group-query-attention \
     --num-query-groups \$NUM_QUERY_GROUPS \
     --use-flash-attn \
-    --eval-iters 5 \
+    --eval-iters 1 \
     --log-throughput \
     --log-progress \
     --log-params-norm \
@@ -228,9 +228,9 @@ PP_SIZE=8
 CP_SIZE=2
 MICRO_BATCH_SIZE=1
 
-TP_SIZE=4
-PP_SIZE=16
-CP_SIZE=2
+TP_SIZE=8
+PP_SIZE=8
+CP_SIZE=1
 MICRO_BATCH_SIZE=1
 
 GPT_ARGS=" \
@@ -250,6 +250,11 @@ GPT_ARGS=" \
     --micro-batch-size \$MICRO_BATCH_SIZE \
 	--recompute-activations \
     \
+   --profile-step-start 2 \
+   --profile-step-end 3 \
+   --use-pytorch-profiler \
+   --profile --tensorboard-dir /workdir/tb-logs \
+    --profile-ranks 3 \
     "
 
 #    --profile-ranks 0 \

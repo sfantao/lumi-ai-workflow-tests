@@ -89,8 +89,7 @@ docker build \
   --build-arg http_proxy='http://172.23.0.3:3128/' \
   -f $DOCKERFILE \
   $extra_build_args \
-  -t $TAG ../context-data-$MI_TARGET 2>&1 | tee $LOG
-
+  -t $TAG ../context-data-$MI_TARGET-mi300a 2>&1 | tee $LOG
 
 rm -rf /tmp/sfantao-sif-build-pipe
 mkdir /tmp/sfantao-sif-build-pipe

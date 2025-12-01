@@ -12,6 +12,8 @@
 #SBATCH -e job-stderr.txt
 
 BASENAME="$(basename $0 | sed 's/.sh$//' | sed 's/^run2-//')"
+
+BASENAME=rocm642
 SIF=$(realpath $SIF)
 
 mkdir -p $BASENAME.runfolder
@@ -56,16 +58,17 @@ fi
 #
 # Lockhart
 #
-if [ $(hostname) = "lockhart-login1" ] ; then
-
+#if [ $(hostname) = "lockhart-login1" ] ; then
+if [ "lockhart-login1" = "lockhart-login1" ] ; then
     module load singularity
     
     jobid=''
     #jobid="--jobid $(squeue --me | awk '{print $1}' | tail -n1)"
 
-    Nodes=1
+    Nodes=$SLURM_NNODES
     c=ff
     MYMASKS="0x${c}000000000000,0x${c}00000000000000,0x${c}0000,0x${c}000000,0x${c},0x${c}00,0x${c}00000000,0x${c}0000000000"
+    MYMASKS="0x${c}000000000000,0x${c}0000,0x${c},0x${c}00000000"
 
     #export MASTER_ADDR=\$(scontrol show hostname "\$SLURM_NODELIST" | head -n1)
 
@@ -77,9 +80,9 @@ if [ $(hostname) = "lockhart-login1" ] ; then
         --mem 0 \
         --exclusive \
         --threads-per-core=1 \
-        -c 8 \
+        -c 16 \
         -N $Nodes \
-        -n $((Nodes*8)) \
+        -n $((Nodes*4)) --tasks-per-node 4 \
         --cpu-bind=mask_cpu:$MYMASKS \
         --gpus $((Nodes*8)) \
         singularity exec \
@@ -266,6 +269,12 @@ cat > run.sh << EOF
 #!/bin/bash -e
 set -x
 
+export HIP_VISIBLE_DEVICES=0,2,4,6
+export CC=gcc-12
+export CXX=g++-12
+
+source /megatron/venv/bin/activate
+
 # For machines with no slingshot
 # unset NCCL_SOCKET_IFNAME
 
@@ -281,6 +290,7 @@ export NCCL_NET_PLUGIN=librccl-net.so
 # export NCCL_DEBUG_SUBSYS=INIT,COLL
 
 export AITER_JIT_DIR=/tmp/my-aiter-jit-dir-\$SLURM_LOCALID
+export TRITON_HOME=/tmp/my-triton
 
 cd /megatron
 
@@ -307,9 +317,9 @@ MERGES=data/merges.txt
 VOCAB=data/vocab.json
 
 NLAYERS=$((112/4))
-NHIDDEN=$((12288/8))
+NHIDDEN=$((12288/4))
 NHEADS=$((96))
-FFN_HIDDEN_SIZE=$((43008))
+FFN_HIDDEN_SIZE=$((43008/4))
 SEQ_LEN=$((8192))
 NUM_QUERY_GROUPS=$((24))
 
@@ -322,7 +332,7 @@ FIXED_GPT_ARGS=" \
     --ffn-hidden-size \$FFN_HIDDEN_SIZE \
     --max-position-embeddings \$SEQ_LEN \
     --seq-length \$SEQ_LEN \
-    --train-iters 5 \
+    --train-iters 1 \
     --tokenizer-type GPT2BPETokenizer \
     --vocab-file \$VOCAB \
     --merge-file \$MERGES \
@@ -340,7 +350,7 @@ FIXED_GPT_ARGS=" \
     --group-query-attention \
     --num-query-groups \$NUM_QUERY_GROUPS \
     --use-flash-attn \
-    --eval-iters 5 \
+    --eval-iters 1 \
     --log-throughput \
     --log-progress \
     --log-params-norm \
@@ -368,7 +378,7 @@ MICRO_BATCH_SIZE=1
 
 TP_SIZE=4
 PP_SIZE=2
-CP_SIZE=2
+CP_SIZE=1
 MICRO_BATCH_SIZE=1
 
 GPT_ARGS=" \
@@ -398,7 +408,7 @@ GPT_ARGS=" \
 #
 
 CMD=" \
-    Megatron-LM/pretrain_gpt.py \
+    Megatron-LM-f612bdf/pretrain_gpt.py \
     \$FIXED_GPT_ARGS \
 	\$GPT_ARGS \
     "
@@ -412,7 +422,20 @@ if [ "\${RANK}" = "0" ]; then
 	echo \$CMD
 fi
 
-python -u \$CMD |& tee /workdir/tb-logs/logs.\$SLURM_PROCID.txt
+if [ "\${RANK}" = "0" ]; then
+    PATH=\$(pwd):\$PATH \
+    ROCPROF=rocprof \
+	omniperf profile --device 0 --roof-only -n megatron3_7B -- /megatron/venv/bin/python -u Megatron-LM-f612bdf/pretrain_gpt.py --num-layers 28 --hidden-size 3072 --num-attention-heads 96 --ffn-hidden-size 10752 --max-position-embeddings 8192 --seq-length 8192 --train-iters 1 --tokenizer-type GPT2BPETokenizer --vocab-file data/vocab.json --merge-file data/merges.txt --data-path data/fineweb-10BT-BPE_text_document --global-batch-size 512 --disable-bias-linear --init-method-std 0.00747017 --normalization RMSNorm --seed 42 --untie-embeddings-and-output-weights --swiglu --attention-dropout 0 --hidden-dropout 0 --use-rotary-position-embeddings --group-query-attention --num-query-groups 24 --use-flash-attn --eval-iters 1 --log-throughput --log-progress --log-params-norm --log-interval 1 --optimizer adam --adam-beta1 0.9 --adam-beta2 0.95 --adam-eps 1e-5 --lr 1.5e-4 --min-lr 1.5e-5 --lr-decay-style cosine --clip-grad 1.0 --weight-decay 1e-1 --bf16 --attention-softmax-in-fp32 --accumulate-allreduce-grads-in-fp32 --distributed-timeout-minutes 10 --no-gradient-accumulation-fusion --no-bias-swiglu-fusion --use-distributed-optimizer --tensor-model-parallel-size 4 --pipeline-model-parallel-size 2 --context-parallel-size 1 --sequence-parallel --dataloader-type single --num-workers 8 --micro-batch-size 1 --recompute-activations
+    #\$(which python) -u \$CMD
+else
+    for i in {1..6} ; do
+        python -u \$CMD
+    done
+    
+fi
+
+# python -u \$CMD |& tee /workdir/tb-logs/logs.\$SLURM_PROCID.txt
+
 EOF
 chmod +x run.sh 
 
