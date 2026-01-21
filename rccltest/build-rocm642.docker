@@ -995,6 +995,44 @@ RUN set -eux ; \
   locale-gen en_US.UTF-8 ; \
   update-locale LANG=en_US.UTF-8 
 
+
+#
+# RCCL environment
+#
+RUN $WITH_CONDA; set -eux ; \
+  CC=gcc \
+  CXX=g++ \
+  git clone -b 2.27.7-1-cscs-tuner https://github.com/jpcoles-cscs/nccl /opt/mybuild ; \
+  cd /opt/mybuild/ext-tuner/example ; \
+  make ; \
+  \
+  mkdir /opt/rccl-tuner ; \
+  mv libnccl-tuner-example.so nccl_tuner.conf /opt/rccl-tuner ; \
+  cd / ; rm -rf /opt/mybuild
+
+ENV NCCL_TUNER_CONFIG_FILE=/opt/rccl-tuner/nccl_tuner.conf 
+ENV NCCL_TUNER_PLUGIN=/opt/rccl-tuner/libnccl-tuner-example.so
+ENV LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/opt/rccl-tuner"
+
+ENV NCCL_CROSS_NIC '1'
+ENV NCCL_NET "AWS Libfabric"
+ENV NCCL_NET_GDR_LEVEL "PHB"
+ENV NCCL_PROTO "^LL128"
+ENV FI_CXI_DEFAULT_CQ_SIZE "131072"
+ENV FI_CXI_DEFAULT_TX_SIZE "32768"
+ENV FI_CXI_DISABLE_HOST_REGISTER "1"
+#FI_CXI_RX_MATCH_MODE = "software"
+ENV FI_MR_CACHE_MONITOR "userfaultfd"
+# The following have been found to help avoid hangs, but are not yet
+# documented elsewhere
+ENV FI_CXI_RDZV_EAGER_SIZE "0"
+ENV FI_CXI_RDZV_GET_MIN "0"
+ENV FI_CXI_RDZV_THRESHOLD "0"
+
+#
+# Python environment
+#
+
 ENV CONDA_DEFAULT_ENV=pytorch
 ENV CONDA_SHLVL=1
 ENV CONDA_EXE="/opt/miniconda3/bin/conda"
