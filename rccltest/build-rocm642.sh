@@ -91,7 +91,6 @@ docker build \
   $extra_build_args \
   -t $TAG ../context-data-$MI_TARGET 2>&1 | tee $LOG
 
-
 rm -rf /tmp/sfantao-sif-build-pipe
 mkdir /tmp/sfantao-sif-build-pipe
 

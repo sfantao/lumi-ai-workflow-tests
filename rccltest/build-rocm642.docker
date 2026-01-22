@@ -468,6 +468,9 @@ RUN set -eux ;   apt-get update ;   apt-get -y install     rustc ;   apt-get cle
 
 ARG DEEPSPEED_VERSION
 RUN $WITH_CONDA; set -eux ; \
+  pip install pip==25.2
+
+RUN $WITH_CONDA; set -eux ; \
   CC=gcc CXX=g++ \
   DS_BUILD_AIO=0 \
   DS_BUILD_CCL_COMM=1 \
@@ -485,9 +488,8 @@ RUN $WITH_CONDA; set -eux ; \
   DS_BUILD_TRANSFORMER_INFERENCE=0 \
   DS_BUILD_STOCHASTIC_TRANSFORMER=1 \
   DS_ACCELERATOR=cuda \
-  pip install deepspeed==$DEEPSPEED_VERSION --global-option="build_ext" --global-option="-j32" ; \
-#  ds_report ; \
-  true
+  pip install deepspeed==$DEEPSPEED_VERSION --global-option="build_ext" --global-option="-j32" 
+
 
 #
 # flash-attention
